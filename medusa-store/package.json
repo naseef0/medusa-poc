@@ -21,7 +21,6 @@
     "test:integration:modules": "TEST_TYPE=integration:modules NODE_OPTIONS=--experimental-vm-modules jest --silent --runInBand --forceExit",
     "test:unit": "TEST_TYPE=unit NODE_OPTIONS=--experimental-vm-modules jest --silent --runInBand --forceExit",
     "predeploy": "medusa db:migrate"
-
   },
   "dependencies": {
     "@medusajs/admin-sdk": "2.7.1",
@@ -32,6 +31,9 @@
     "@mikro-orm/knex": "6.4.3",
     "@mikro-orm/migrations": "6.4.3",
     "@mikro-orm/postgresql": "6.4.3",
+    "@sanity/client": "^7.0.0",
+    "@sendgrid/mail": "^8.1.5",
+    "algoliasearch": "^5.24.0",
     "awilix": "^8.0.1",
     "pg": "^8.13.0"
   },

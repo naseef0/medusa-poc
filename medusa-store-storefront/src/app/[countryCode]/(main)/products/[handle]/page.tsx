@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { listProducts } from "@lib/data/products"
 import { getRegion, listRegions } from "@lib/data/regions"
 import ProductTemplate from "@modules/products/templates"
+import { client } from "../../../../../sanity/lib/client"
 
 type Props = {
   params: Promise<{ countryCode: string; handle: string }>
@@ -34,8 +35,7 @@ export async function generateStaticParams() {
       .filter((param) => param.handle)
   } catch (error) {
     console.error(
-      `Failed to generate static paths for product pages: ${
-        error instanceof Error ? error.message : "Unknown error"
+      `Failed to generate static paths for product pages: ${error instanceof Error ? error.message : "Unknown error"
       }.`
     )
     return []
@@ -88,11 +88,15 @@ export default async function ProductPage(props: Props) {
     notFound()
   }
 
+  // alternatively, you can filter the content by the language
+  const sanity = (await client.getDocument(pricedProduct.id))?.specs[0]
+
   return (
     <ProductTemplate
       product={pricedProduct}
       region={region}
       countryCode={params.countryCode}
+      sanity={sanity}
     />
   )
 }
