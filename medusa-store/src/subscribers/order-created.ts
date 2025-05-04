@@ -12,7 +12,6 @@ export default async function orderCreateHandler({
     const orderModuleService = container.resolve(Modules.ORDER)
 
     const order = await orderModuleService.retrieveOrder(data.id)
-console.log("order", order);
 
     await notificationModuleService.createNotifications({
         to: order.email??"",

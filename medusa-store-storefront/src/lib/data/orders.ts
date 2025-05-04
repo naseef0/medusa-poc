@@ -23,7 +23,7 @@ export const retrieveOrder = async (id: string) => {
       },
       headers,
       next,
-      cache: "force-cache",
+      cache: "no-cache",
     })
     .then(({ order }) => order)
     .catch((err) => medusaError(err))
