@@ -1,4 +1,4 @@
-import { loadEnv, defineConfig,Modules } from '@medusajs/framework/utils'
+import { loadEnv, defineConfig, Modules } from '@medusajs/framework/utils'
 
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
@@ -16,9 +16,14 @@ module.exports = defineConfig({
     redisUrl: process.env.REDIS_URL,
   },
   admin: {
-    disable: process.env.DISABLE_MEDUSA_ADMIN === "true",
+    disable: process.env.MEDUSA_BACKEND_URL === "true",
+    backendUrl: process.env.MEDUSA_BACKEND_URL,
+    vite: (config) => {
+      config.server.allowedHosts = process.env.MEDUSA_BACKEND_URL ? [process.env.MEDUSA_BACKEND_URL] : [] 
+      return config
+    }
   },
-  
+
   modules: [
     {
       resolve: "@medusajs/medusa/payment",
@@ -41,13 +46,13 @@ module.exports = defineConfig({
         project_id: process.env.SANITY_PROJECT_ID,
         api_version: new Date().toISOString().split("T")[0],
         dataset: "production",
-        studio_url: process.env.SANITY_STUDIO_URL || 
+        studio_url: process.env.SANITY_STUDIO_URL ||
           "http://localhost:3000/studio",
         type_map: {
           product: "product",
         },
       },
-      
+
     },
     {
       resolve: "./src/modules/algolia",

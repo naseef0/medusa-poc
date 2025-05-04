@@ -1,0 +1,71 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: medusa-starter
+      POSTGRES_PASSWORD: medusa-password
+      POSTGRES_DB: medusa-starter
+    ports:
+      - 5433:5432
+    deploy:
+      resources:
+        limits:
+          cpus: 2
+          memory: 1024M
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "medusa-starter"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    ports:
+      - 6379:6379
+    volumes:
+      - cache-backend-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend-server:
+    build: .
+    ports:
+      - 9000:9000
+    deploy:
+      resources:
+        limits:
+          cpus: 2
+          memory: 2048M
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - backend-server-data:/data
+    environment:
+      NODE_ENV: CI
+      STORE_CORS: http://localhost:8000
+      ADMIN_CORS: http://localhost:8000,https://15f2-2403-a080-c04-4272-6a2d-73d1-d680-aef3.ngrok-free.app
+      REDIS_URL: redis://redis:6379
+      CACHE_REDIS_URL: redis://redis:6379/1
+      EVENTS_REDIS_URL: redis://redis:6379/2
+      WE_REDIS_URL: redis://redis:6379/3
+      DATABASE_URL: postgres://medusa-starter:medusa-password@postgres/medusa-starter?ssl_mode=disable
+      POSTGRES_URL: postgres://medusa-starter:medusa-password@postgres/medusa-starter?ssl_mode=disable
+    healthcheck:
+      test: ["CMD", "curl", "-f", "https://15f2-2403-a080-c04-4272-6a2d-73d1-d680-aef3.ngrok-free.app/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+
+volumes:
+  postgres-data:
+  backend-server-data:
+  cache-backend-data:
