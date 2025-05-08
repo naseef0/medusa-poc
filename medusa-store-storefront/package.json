@@ -15,6 +15,7 @@
     "analyze": "ANALYZE=true next build"
   },
   "dependencies": {
+    "@checkout.com/checkout-web-components": "^0.6.0-beta",
     "@headlessui/react": "^2.2.0",
     "@medusajs/js-sdk": "latest",
     "@medusajs/ui": "latest",
@@ -22,6 +23,7 @@
     "@stripe/react-stripe-js": "^1.16.5",
     "@stripe/stripe-js": "^1.54.2",
     "algoliasearch": "^5.24.0",
+    "frames-react": "^1.2.2",
     "lodash": "^4.17.21",
     "next": "15.0.3",
     "next-sanity": "^9.10.6",

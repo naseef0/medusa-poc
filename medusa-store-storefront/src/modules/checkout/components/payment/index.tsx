@@ -1,18 +1,28 @@
 "use client"
 
 import { RadioGroup } from "@headlessui/react"
-import { isStripe as isStripeFunc, paymentInfoMap } from "@lib/constants"
-import { initiatePaymentSession } from "@lib/data/cart"
+import {
+  isCheckoutPaymentFunc,
+  isStripe as isStripeFunc,
+  paymentInfoMap,
+} from "@lib/constants"
+import {
+  initiatePaymentSession,
+  initiatePaymentSessionCustom,
+} from "@lib/data/cart"
 import { CheckCircleSolid, CreditCard } from "@medusajs/icons"
 import { Button, Container, Heading, Text, clx } from "@medusajs/ui"
 import ErrorMessage from "@modules/checkout/components/error-message"
-import PaymentContainer, {
-  StripeCardContainer,
-} from "@modules/checkout/components/payment-container"
 import Divider from "@modules/common/components/divider"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useCallback, useEffect, useState } from "react"
-
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { Frames, CardNumber, ExpiryDate, Cvv } from "frames-react"
+import PaymentContainer, {
+  StripeCardContainer,
+  CheckoutCardContainer,
+} from "../payment-container"
+import { useCheckoutContext } from "../checkout-wrapper/stripe-wrapper"
+import { metadata } from "app/layout"
 const Payment = ({
   cart,
   availablePaymentMethods,
@@ -24,12 +34,11 @@ const Payment = ({
     (paymentSession: any) => paymentSession.status === "pending"
   )
 
-  console.log("availablePaymentMethods", availablePaymentMethods);
-  
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [cardBrand, setCardBrand] = useState<string | null>(null)
   const [cardComplete, setCardComplete] = useState(false)
+  const [checkoutCardComplete, setCheckoutCard] = useState(false)
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
     activeSession?.provider_id ?? ""
   )
@@ -41,7 +50,51 @@ const Payment = ({
   const isOpen = searchParams.get("step") === "payment"
 
   const isStripe = isStripeFunc(selectedPaymentMethod)
+  const {
+    state: { session },
+    handleCheckoutSession,
+  } = useCheckoutContext()
+  console.log("cart", cart)
 
+  const isCheckoutPayment = useMemo(() => {
+    return isCheckoutPaymentFunc(activeSession?.provider_id)
+  }, [activeSession?.provider_id])
+
+  useEffect(() => {
+    if (isCheckoutPayment && cart && !session) {
+      const initiateSession = async () => {
+        const selectSession = cart.payment_collection?.payment_sessions?.find(
+          (paymentSession: any) => paymentSession.status === "pending"
+        )
+        console.log("selectSession", selectSession)
+
+        const response: any = await initiatePaymentSessionCustom({
+          cart_id: cart?.id,
+          billing: {
+            address: {
+              country: cart?.billing_address?.country_code.toUpperCase(),
+            },
+          },
+          success_url:
+            process.env.NEXT_PUBLIC_BASE_URL +
+            "/api/payment/checkout/processor",
+          failure_url:
+            process.env.NEXT_PUBLIC_BASE_URL +
+            "/api/payment/checkout/processor",
+          amount: cart?.total,
+          currency_code: cart?.currency_code.toUpperCase(),
+          metadata: {
+            medusa_payment_collection_id: selectSession.payment_collection_id,
+            medusa_payment_session_id: selectSession?.id,
+          },
+        })
+        console.log("response", response)
+
+        handleCheckoutSession(response)
+      }
+      initiateSession()
+    }
+  }, [cart, isCheckoutPayment])
   const setPaymentMethod = async (method: string) => {
     setError(null)
     setSelectedPaymentMethod(method)
@@ -49,6 +102,34 @@ const Payment = ({
       await initiatePaymentSession(cart, {
         provider_id: method,
       })
+    }
+
+    if (isCheckoutPaymentFunc(method)) {
+      const currency_code = cart?.currency_code
+      const medusaPaymentSession = await initiatePaymentSession(cart, {
+        provider_id: method,
+      })
+      const response: any = await initiatePaymentSessionCustom({
+        cart_id: cart?.id,
+        billing: {
+          address: {
+            country: cart?.billing_address?.country_code.toUpperCase(),
+          },
+        },
+        success_url:
+          process.env.NEXT_PUBLIC_BASE_URL + "/api/payment/checkout/processor",
+        failure_url:
+          process.env.NEXT_PUBLIC_BASE_URL + "/api/payment/checkout/processor",
+        amount: cart?.total,
+        currency_code: currency_code.toUpperCase(),
+        metadata: {
+          medusa_payment_collection_id:
+            medusaPaymentSession.payment_collection.id,
+          medusa_payment_session_id:
+            medusaPaymentSession?.payment_collection?.payment_sessions?.[0]?.id,
+        },
+      })
+      handleCheckoutSession(response)
     }
   }
 
@@ -84,9 +165,10 @@ const Payment = ({
         activeSession?.provider_id === selectedPaymentMethod
 
       if (!checkActiveSession) {
-        await initiatePaymentSession(cart, {
-          provider_id: selectedPaymentMethod,
-        })
+        !isCheckoutPaymentFunc(selectedPaymentMethod) &&
+          (await initiatePaymentSession(cart, {
+            provider_id: selectedPaymentMethod,
+          }))
       }
 
       if (!shouldInputCard) {
@@ -219,7 +301,7 @@ const Payment = ({
                     activeSession?.provider_id}
                 </Text>
               </div>
-              <div className="flex flex-col w-1/3">
+              <div className="flex flex-col">
                 <Text className="txt-medium-plus text-ui-fg-base mb-1">
                   Payment details
                 </Text>
@@ -232,10 +314,12 @@ const Payment = ({
                       <CreditCard />
                     )}
                   </Container>
-                  <Text>
-                    {isStripeFunc(selectedPaymentMethod) && cardBrand
-                      ? cardBrand
-                      : "Another step will appear"}
+                  <Text >
+                    {isStripeFunc(selectedPaymentMethod) && cardBrand ? (
+                      cardBrand
+                    ) : (
+                      <>{isCheckoutPayment ? "Another step will appear" : "Pay in cash/accepted methods when your order arrives."}</>
+                    )}
                   </Text>
                 </div>
               </div>

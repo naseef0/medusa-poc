@@ -1,6 +1,6 @@
 "use client"
 
-import { isManual, isStripe } from "@lib/constants"
+import { isCheckoutPaymentFunc, isManual, isStripe } from "@lib/constants"
 import { placeOrder } from "@lib/data/cart"
 import { HttpTypes } from "@medusajs/types"
 import { Button } from "@medusajs/ui"
@@ -30,6 +30,14 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
     case isStripe(paymentSession?.provider_id):
       return (
         <StripePaymentButton
+          notReady={notReady}
+          cart={cart}
+          data-testid={dataTestId}
+        />
+      )
+    case isCheckoutPaymentFunc(paymentSession?.provider_id):
+      return (
+        <CheckoutPaymentButton
           notReady={notReady}
           cart={cart}
           data-testid={dataTestId}
@@ -147,6 +155,44 @@ const StripePaymentButton = ({
         error={errorMessage}
         data-testid="stripe-payment-error-message"
       />
+    </>
+  )
+}
+
+const CheckoutPaymentButton = ({
+  cart,
+  notReady,
+  "data-testid": dataTestId,
+}: {
+  cart: HttpTypes.StoreCart
+  notReady: boolean
+  "data-testid"?: string
+}) => {
+  const [submitting, setSubmitting] = useState(false)
+
+  const session = cart.payment_collection?.payment_sessions?.find(
+    (s) => s.status === "pending"
+  )
+
+
+  const handlePayment = async () => {
+    setSubmitting(true)
+    if (typeof window !== "undefined") {
+      window.location.href = session?.data.redirectLink as string
+    }
+  }
+
+  return (
+    <>
+      <Button
+        disabled={notReady}
+        onClick={handlePayment}
+        size="large"
+        isLoading={submitting}
+        data-testid={dataTestId}
+      >
+        Place order
+      </Button>
     </>
   )
 }

@@ -44,9 +44,39 @@ export async function retrieveCart(cartId?: string) {
       },
       headers,
       next,
-      cache: "force-cache",
+      cache: "no-cache",
     })
     .then(({ cart }) => cart)
+    .catch(() => null)
+}
+
+/**
+ * Retrieves a cart by its ID. If no ID is provided, it will use the cart ID from the cookies.
+ * @param cartId - optional - The ID of the cart to retrieve.
+ * @returns The cart object if found, or null if not found.
+ */
+export async function retrieveOrderByCart(cartId?: string) {
+  const id = cartId 
+
+  if (!id) {
+    return null
+  }
+
+  const headers = {
+    ...(await getAuthHeaders()),
+  }
+
+  const next = {
+    ...(await getCacheOptions("carts")),
+  }
+
+  return await sdk.client
+    .fetch<HttpTypes.StoreOrder>(`/store/cart/order/${id}`, {
+      method: "GET",
+      headers,
+      next,
+      cache: "no-cache",
+    })
     .catch(() => null)
 }
 
@@ -252,6 +282,27 @@ export async function initiatePaymentSession(
     .catch(medusaError)
 }
 
+export async function initiatePaymentSessionCustom(
+  data: any
+) {
+  const headers = {
+    ...(await getAuthHeaders()),
+  }
+
+  
+  return sdk.client
+    .fetch<HttpTypes.StoreInitializePaymentSession>(
+      `/store/payments/checkout/initiate`,
+      {
+        method: "POST",
+        body: {...data},
+        headers,
+        cache: "no-cache",
+      }
+    )
+    .catch(medusaError)
+}
+
 export async function applyPromotions(codes: string[]) {
   const cartId = await getCartId()
 
@@ -420,6 +471,34 @@ export async function placeOrder(cartId?: string) {
   }
 
   return cartRes.cart
+}
+
+/**
+ * Places an order for a cart. If no cart ID is provided, it will use the cart ID from the cookies.
+ * @param cartId - optional - The ID of the cart to place an order for.
+ * @returns The cart object if the order was successful, or null if not.
+ */
+export async function placeOrderV2(cartId?: string):Promise<HttpTypes.StoreCompleteCartResponse> {
+  const id = cartId || (await getCartId())
+
+  if (!id) {
+    throw new Error("No existing cart found when placing an order")
+  }
+
+  const headers = {
+    ...(await getAuthHeaders()),
+  }
+
+  const cartRes = await sdk.store.cart
+    .complete(id, {}, headers)
+    .then(async (cartRes) => {
+      const cartCacheTag = await getCacheTag("carts")
+      revalidateTag(cartCacheTag)
+      return cartRes
+    })
+    .catch(medusaError)
+
+  return cartRes
 }
 
 /**

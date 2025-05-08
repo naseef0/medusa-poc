@@ -8600,6 +8600,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"axios@npm:^0.30.0":
+  version: 0.30.0
+  resolution: "axios@npm:0.30.0"
+  dependencies:
+    follow-redirects: "npm:^1.15.4"
+    form-data: "npm:^4.0.0"
+    proxy-from-env: "npm:^1.1.0"
+  checksum: 10c0/c3ac8aef31e30063b4aa277aeafdbf2262adbae6d459a405de66d9dd8a8b691bc5fac32c3db691d3dbb23e6d11daebb82aae166b4b858adb036287007215bdc9
+  languageName: node
+  linkType: hard
+
 "axios@npm:^1.8.2":
   version: 1.9.0
   resolution: "axios@npm:1.9.0"
@@ -9105,6 +9116,17 @@ __metadata:
   version: 0.7.0
   resolution: "chardet@npm:0.7.0"
   checksum: 10c0/96e4731b9ec8050cbb56ab684e8c48d6c33f7826b755802d14e3ebfdc51c57afeece3ea39bc6b09acc359e4363525388b915e16640c1378053820f5e70d0f27d
+  languageName: node
+  linkType: hard
+
+"checkout-sdk-node@npm:^2.6.0":
+  version: 2.6.0
+  resolution: "checkout-sdk-node@npm:2.6.0"
+  dependencies:
+    axios: "npm:^0.30.0"
+    form-data: "npm:^4.0.0"
+    node-fetch: "npm:^2.6.12"
+  checksum: 10c0/450a2e4215db3f38a295a2c29fabfa5982f1291b04caa8681902a7158a7a15e08b3e8c045a916ae6ac7b189792ba578f87f9cded63cf4cbdb745c81a19479ef6
   languageName: node
   linkType: hard
 
@@ -10575,7 +10597,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"follow-redirects@npm:^1.14.0, follow-redirects@npm:^1.15.6, follow-redirects@npm:^1.15.9":
+"follow-redirects@npm:^1.14.0, follow-redirects@npm:^1.15.4, follow-redirects@npm:^1.15.6, follow-redirects@npm:^1.15.9":
   version: 1.15.9
   resolution: "follow-redirects@npm:1.15.9"
   peerDependenciesMeta:
@@ -12590,6 +12612,7 @@ __metadata:
     "@types/react-dom": "npm:^18.2.25"
     algoliasearch: "npm:^5.24.0"
     awilix: "npm:^8.0.1"
+    checkout-sdk-node: "npm:^2.6.0"
     jest: "npm:^29.7.0"
     pg: "npm:^8.13.0"
     prop-types: "npm:^15.8.1"

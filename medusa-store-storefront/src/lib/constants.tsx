@@ -1,5 +1,5 @@
 import React from "react"
-import { CreditCard } from "@medusajs/icons"
+import { CashSolid, CreditCard } from "@medusajs/icons"
 
 import Ideal from "@modules/common/icons/ideal"
 import Bancontact from "@modules/common/icons/bancontact"
@@ -26,9 +26,13 @@ export const paymentInfoMap: Record<
     title: "PayPal",
     icon: <PayPal />,
   },
-  pp_system_default: {
-    title: "Manual Payment",
+  "pp_checkout-com_checkout-com": {
+    title: "Debit / Credit",
     icon: <CreditCard />,
+  },
+  pp_system_default: {
+    title: "Cash On Delivery",
+    icon: <CashSolid />,
   },
   // Add more payment providers here
 }
@@ -36,6 +40,9 @@ export const paymentInfoMap: Record<
 // This only checks if it is native stripe for card payments, it ignores the other stripe-based providers
 export const isStripe = (providerId?: string) => {
   return providerId?.startsWith("pp_stripe_")
+}
+export const isCheckoutPaymentFunc = (providerId?: string) => {
+  return providerId?.startsWith("pp_checkout-com_")
 }
 export const isPaypal = (providerId?: string) => {
   return providerId?.startsWith("pp_paypal")

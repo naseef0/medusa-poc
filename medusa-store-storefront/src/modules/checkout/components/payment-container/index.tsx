@@ -1,7 +1,7 @@
 import { Radio as RadioGroupOption } from "@headlessui/react"
-import { Text, clx } from "@medusajs/ui"
-import React, { useContext, useMemo, type JSX } from "react"
-
+import { Button, Text, clx } from "@medusajs/ui"
+import React, { useContext, useMemo, useState, type JSX } from "react"
+import { Frames, CardNumber, ExpiryDate, Cvv } from "frames-react";
 import Radio from "@modules/common/components/radio"
 
 import { isManual } from "@lib/constants"
@@ -47,17 +47,12 @@ const PaymentContainer: React.FC<PaymentContainerProps> = ({
           <Text className="text-base-regular">
             {paymentInfoMap[paymentProviderId]?.title || paymentProviderId}
           </Text>
-          {isManual(paymentProviderId) && isDevelopment && (
-            <PaymentTest className="hidden small:block" />
-          )}
+          
         </div>
         <span className="justify-self-end text-ui-fg-base">
           {paymentInfoMap[paymentProviderId]?.icon}
         </span>
       </div>
-      {isManual(paymentProviderId) && isDevelopment && (
-        <PaymentTest className="small:hidden text-[10px]" />
-      )}
       {children}
     </RadioGroupOption>
   )
@@ -124,6 +119,116 @@ export const StripeCardContainer = ({
         ) : (
           <SkeletonCardDetails />
         ))}
+    </PaymentContainer>
+  )
+}
+
+export const CheckoutCardContainer = ({
+  paymentProviderId,
+  selectedPaymentOptionId,
+  paymentInfoMap,
+  disabled = false,
+  setCardBrand,
+  setError,
+  setCardComplete,
+  handleCkoPaymentSubmit,
+}: Omit<PaymentContainerProps, "children"> & {
+  setCardBrand: (brand: string) => void
+  setError: (error: string | null) => void
+  setCardComplete: (complete: boolean) => void
+  handleCkoPaymentSubmit: (token: string) => void
+}) => {
+  const [stripeReady, setFrameReady] = useState(false)
+
+
+  return (
+    <PaymentContainer
+      paymentProviderId={paymentProviderId}
+      selectedPaymentOptionId={selectedPaymentOptionId}
+      paymentInfoMap={paymentInfoMap}
+      disabled={disabled}
+    >
+      {selectedPaymentOptionId === paymentProviderId &&
+        <div className="my-4 transition-all duration-150 ease-in-out">
+          <Frames
+            config={{
+              debug: true,
+              publicKey: "pk_sbox_tc6nh5vojzoa5d7umlgauzniamz",
+              localization: {
+                cardNumberPlaceholder: "Card number",
+                expiryMonthPlaceholder: "MM",
+                expiryYearPlaceholder: "YY",
+                cvvPlaceholder: "CVV",
+              },
+              style: {
+                base: {
+                  color: "#000",
+                  fontSize: "16px",
+                  fontFamily: "inherit",
+
+                },
+                invalid: {
+                  color: "#e53e3e", // red text
+                  borderColor: "#e53e3e", // red border
+                },
+                focus: {
+                  borderColor: "#3182ce", // blue on focus
+                }
+              }
+            }}
+            ready={() => {}}
+            frameActivated={(e) => { }}
+            frameFocus={(e) => { }}
+
+            paymentMethodChanged={(e) => { }}
+            cardValidationChanged={(e) => {
+              if (e.isValid) {
+                setFrameReady(true)
+                setCardComplete(true)
+              } else {
+                setFrameReady(false)
+                setCardComplete(false)
+              }
+            }}
+            cardSubmitted={() => { }}
+            cardTokenized={(e) => {  handleCkoPaymentSubmit(e.token) }}
+            cardTokenizationFailed={(e) => { }}
+            cardBinChanged={(e) => { }}
+          >
+            <div className="space-y-4">
+              <label className="block text-sm font-medium">Card Number</label>
+              <div className="border rounded-md p-2">
+                <CardNumber className="w-full h-10" />
+              </div>
+
+              <div className="flex space-x-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium">Expiry</label>
+                  <div className="border rounded-md p-2">
+                    <ExpiryDate className="w-full h-10" />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium">CVV</label>
+                  <div className="border rounded-md p-2">
+                    <Cvv className="w-full h-10" />
+                  </div>
+                </div>
+              </div>
+              <Button size="large"
+                className="mt-6"
+                data-testid="submit-payment-button"
+                onClick={() => {
+                  Frames.submitCard();
+                }}
+                disabled={!stripeReady}
+                >
+                Pay Now
+              </Button>
+            </div>
+          </Frames>
+        </div>
+      }
     </PaymentContainer>
   )
 }
