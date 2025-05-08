@@ -56,6 +56,19 @@ module.exports = defineConfig({
               apiKey: process.env.STRIPE_API_KEY,
             },
           },
+          {
+            resolve: "./src/modules/checkout-payment",
+            id: "checkout-com",
+            options: {
+              secretKey: process.env.CHECKOUT_COM_SECRET_KEY,
+              publicKey: process.env.CHECKOUT_COM_PUBLIC_KEY,
+              // For OAuth flow, use these instead:
+              // clientId: process.env.CHECKOUT_COM_CLIENT_ID,
+              // scope: ["gateway"], // adjust as needed
+              // environment: process.env.CHECKOUT_COM_ENVIRONMENT || "sandbox",
+              webhookSecret: process.env.CHECKOUT_COM_WEBHOOK_SECRET
+            }
+          }
         ],
       },
     },
