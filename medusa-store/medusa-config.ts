@@ -23,7 +23,12 @@ module.exports = defineConfig({
       return config
     }
   },
-
+  plugins: [
+    {
+      resolve: "checkout-payment-plugin-by-valoriz",
+      options: {},
+    },
+  ],
   modules: [
     {
       resolve: "@medusajs/medusa/cache-redis",

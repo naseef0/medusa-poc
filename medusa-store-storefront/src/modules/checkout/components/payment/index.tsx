@@ -7,8 +7,8 @@ import {
   paymentInfoMap,
 } from "@lib/constants"
 import {
+  initiateCkoPaymentSession,
   initiatePaymentSession,
-  initiatePaymentSessionCustom,
 } from "@lib/data/cart"
 import { CheckCircleSolid, CreditCard } from "@medusajs/icons"
 import { Button, Container, Heading, Text, clx } from "@medusajs/ui"
@@ -68,7 +68,7 @@ const Payment = ({
         )
         console.log("selectSession", selectSession)
 
-        const response: any = await initiatePaymentSessionCustom({
+        const response: any = await initiateCkoPaymentSession({
           cart_id: cart?.id,
           billing: {
             address: {
@@ -95,6 +95,7 @@ const Payment = ({
       initiateSession()
     }
   }, [cart, isCheckoutPayment])
+  
   const setPaymentMethod = async (method: string) => {
     setError(null)
     setSelectedPaymentMethod(method)
@@ -108,8 +109,22 @@ const Payment = ({
       const currency_code = cart?.currency_code
       const medusaPaymentSession = await initiatePaymentSession(cart, {
         provider_id: method,
+        data:{
+          cart_id: cart?.id,
+          billing: {
+            address: {
+              country: cart?.billing_address?.country_code.toUpperCase(),
+            },
+          },
+          success_url:
+            process.env.NEXT_PUBLIC_BASE_URL + "/api/payment/checkout/processor",
+          failure_url:
+            process.env.NEXT_PUBLIC_BASE_URL + "/api/payment/checkout/processor",
+          amount: cart?.total,
+          currency_code: currency_code.toUpperCase(),
+        }
       })
-      const response: any = await initiatePaymentSessionCustom({
+      const response: any = await initiateCkoPaymentSession({
         cart_id: cart?.id,
         billing: {
           address: {

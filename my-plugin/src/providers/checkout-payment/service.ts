@@ -1,4 +1,4 @@
-import { AbstractPaymentProvider, ContainerRegistrationKeys } from "@medusajs/framework/utils"
+import { AbstractPaymentProvider } from "@medusajs/framework/utils"
 import {
   Logger,
   AuthorizePaymentInput,
@@ -98,6 +98,7 @@ class CheckoutComPaymentService extends AbstractPaymentProvider<CheckoutComOptio
     input: InitiatePaymentInput,
 
   ): Promise<InitiatePaymentOutput> {
+      //TODO: Implement initiatePayment
     return {
       id: "",
     }
@@ -155,7 +156,7 @@ console.log();
   ): Promise<CancelPaymentOutput> {
     try {
       const { data } = input
-      const paymentId = data?.id as string ?? ""
+      const paymentId = data?.paymentId as string ?? ""
       console.log("---> retrievePayment", input);
 
       if (!paymentId) {

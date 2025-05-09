@@ -282,17 +282,16 @@ export async function initiatePaymentSession(
     .catch(medusaError)
 }
 
-export async function initiatePaymentSessionCustom(
+export async function initiateCkoPaymentSession(
   data: any
 ) {
   const headers = {
     ...(await getAuthHeaders()),
   }
 
-  
   return sdk.client
     .fetch<HttpTypes.StoreInitializePaymentSession>(
-      `/store/payments/checkout/initiate`,
+      `/store/cko/payment-session`,
       {
         method: "POST",
         body: {...data},

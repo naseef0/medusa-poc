@@ -1,3 +1,119 @@
+# Medusa Checkout.com Payment
+
+## What is it?
+
+Medusa Checkout.com Payment is a basic integration of payment provider for Checkout.com Payment.
+
+## Installation
+
+1. Install plugin by adding to your `package.json`:
+
+**Warning**
+
+```json
+...
+"checkout-payment-plugin-by-valoriz": "0.0.2" // or other available version
+...
+```
+and execute install, e.g. `yarn install`.
+
+2. Add plugin to your `medusa-config.js` (**Note** - please notice that you need to add it to payment plugin):
+
+```js
+...
+  plugins: [
+    {
+      resolve: "checkout-payment-plugin-by-valoriz",
+      options: {},
+    }
+  ],
+  modules: [
+    {
+      resolve: "@medusajs/medusa/payment",
+      options: {
+        providers: [
+          {
+            resolve: "checkout-payment-plugin-by-valoriz/providers/checkout-payment",
+            id: "checkout-com",
+            options: {
+              secretKey: process.env.CHECKOUT_COM_SECRET_KEY,
+              publicKey: process.env.CHECKOUT_COM_PUBLIC_KEY,
+              webhookSecret: process.env.CHECKOUT_COM_WEBHOOK_SECRET
+            }
+          }
+        ],
+      },
+    },
+  ]
+...
+```
+
+## Overview
+
+The basic implementation of Checkout.com payment provider gives the possibility to make a payment in your storefront.
+
+## Configuration
+
+Plugin uses 3 required parameter:
+
+- `secretKey` - required parameter which you can find in your Checkout.com Developer Dashboard
+- `publicKey` - required parameter which you can find in your Checkout.com Developer Dashboard
+- `webhookSecret` - required parameter which you can find in your Checkout.com Developer Dashboard
+- `processing_channel` - required parameter which you can find in your Checkout.com Developer Dashboard
+
+
+After above configuration, you can then add the payment provider to your region.
+
+## Storefront
+
+We recommend using `react-square-web-payments-sdk` package on your storefront as it simplifies the implementation a lot.
+Here is the example of using credit card as payment:
+
+```tsx
+ const {
+    state: { session },
+    handleCheckoutSession,
+  } = useCheckoutContext();
+
+const setPaymentMethod = async (method: string) => {
+    setError(null)
+    setSelectedPaymentMethod(method)
+    if (isCheckoutPaymentFunc(method)) {
+      const currency_code = cart?.currency_code
+      const medusaPaymentSession = await initiatePaymentSession(cart, {
+        provider_id: method,
+      })
+      const response: any = await initiateCkoPaymentSession({
+        cart_id: cart?.id,
+        billing: {
+          address: {
+            country: cart?.billing_address?.country_code.toUpperCase(),
+          },
+        },
+        success_url:
+          process.env.NEXT_PUBLIC_BASE_URL + "/api/payment/checkout/processor",
+        failure_url:
+          process.env.NEXT_PUBLIC_BASE_URL + "/api/payment/checkout/processor",
+        amount: cart?.total,
+        currency_code: currency_code.toUpperCase(),
+        metadata: {
+          medusa_payment_collection_id:
+            medusaPaymentSession.payment_collection.id,
+          medusa_payment_session_id:
+            medusaPaymentSession?.payment_collection?.payment_sessions?.[0]?.id,
+        },
+      })
+      handleCheckoutSession(response)
+    }
+  }
+ 
+ ...
+ 
+  {isCheckoutPayment && (<CheckoutFlow cart={cart}></CheckoutFlow>)}
+  
+```
+CheckoutFlow.tsx
+```tsx
 import { initiatePaymentSession } from '@lib/data/cart';
 import React, { useEffect, useState, useRef } from 'react';
 import { useCheckoutContext } from '../checkout-wrapper/stripe-wrapper';
@@ -147,3 +263,17 @@ const handleCkoPaymentSubmit = async (data: any) => {
 };
 
 export default CheckoutFlow;
+
+```
+
+`publicKey` - you can retrieve it from your Checkout.com Developer Dashboard.
+
+## Limitations
+
+Plugin does not support refunds and cancels. It has been tested using only credit card - when authorized, it captures money automatically.
+
+## License
+
+MIT
+
+---
