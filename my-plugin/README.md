@@ -12,7 +12,7 @@ Medusa Checkout.com Payment is a basic integration of payment provider for Check
 
 ```json
 ...
-"checkout-payment-plugin-by-valoriz": "0.0.2" // or other available version
+"checkout-payment-plugin-by-valoriz": "1.0.0" // or other available version
 ...
 ```
 and execute install, e.g. `yarn install`.
@@ -38,6 +38,7 @@ and execute install, e.g. `yarn install`.
             options: {
               secretKey: process.env.CHECKOUT_COM_SECRET_KEY,
               publicKey: process.env.CHECKOUT_COM_PUBLIC_KEY,
+              processingChannelId: process.env.CHECKOUT_COM_PROCESSING_CHANNEL_ID,
               webhookSecret: process.env.CHECKOUT_COM_WEBHOOK_SECRET
             }
           }
@@ -64,59 +65,89 @@ Plugin uses 3 required parameter:
 
 After above configuration, you can then add the payment provider to your region.
 
+4. Configure the endpoint URL `/store/webhooks/cko` in the Webhooks settings on the Checkout.com Dashboard.
+
+HTTP Headers:
+Key:` x-publishable-api-key`
+
+Value: (your Medusa publishable API key)
+
 ## Storefront
 
-We recommend using `react-square-web-payments-sdk` package on your storefront as it simplifies the implementation a lot.
 Here is the example of using credit card as payment:
 
 ```tsx
- const {
-    state: { session },
-    handleCheckoutSession,
-  } = useCheckoutContext();
+ 
+  const [isLoading, setIsLoading] = useState(false)
+  const [ckoSession, setCkoSession] = useState<any>(null)
+  const hasInitiatedRef = useRef(false)
 
-const setPaymentMethod = async (method: string) => {
-    setError(null)
-    setSelectedPaymentMethod(method)
-    if (isCheckoutPaymentFunc(method)) {
-      const currency_code = cart?.currency_code
-      const medusaPaymentSession = await initiatePaymentSession(cart, {
-        provider_id: method,
-      })
-      const response: any = await initiateCkoPaymentSession({
-        cart_id: cart?.id,
-        billing: {
-          address: {
-            country: cart?.billing_address?.country_code.toUpperCase(),
+  useEffect(() => {
+    const initiateSession = async () => {
+      setIsLoading(true)
+
+      const selectSession = cart.payment_collection?.payment_sessions?.find(
+        (paymentSession: any) => paymentSession.status === "pending"
+      )
+
+      const response: any = await initiatePaymentSession(cart, {
+        provider_id: "pp_checkout-com_checkout-com",
+        data: {
+          cart_id: cart?.id,
+          billing: {
+            address: {
+              country: cart?.billing_address?.country_code?.toUpperCase(),
+            },
+          },
+          success_url:
+            process.env.NEXT_PUBLIC_BASE_URL +
+            "/api/payment/checkout/processor" +
+            "?cart_id=" +
+            cart?.id,
+          failure_url:
+            process.env.NEXT_PUBLIC_BASE_URL +
+            "/api/payment/checkout/processor" +
+            "?cart_id=" +
+            cart?.id,
+          amount: cart?.total,
+          currency_code: cart?.currency_code?.toUpperCase(),
+          metadata: {
+            medusa_payment_collection_id: selectSession?.payment_collection_id,
+            medusa_payment_session_id: selectSession?.id,
           },
         },
-        success_url:
-          process.env.NEXT_PUBLIC_BASE_URL + "/api/payment/checkout/processor",
-        failure_url:
-          process.env.NEXT_PUBLIC_BASE_URL + "/api/payment/checkout/processor",
-        amount: cart?.total,
-        currency_code: currency_code.toUpperCase(),
-        metadata: {
-          medusa_payment_collection_id:
-            medusaPaymentSession.payment_collection.id,
-          medusa_payment_session_id:
-            medusaPaymentSession?.payment_collection?.payment_sessions?.[0]?.id,
-        },
       })
-      handleCheckoutSession(response)
+      setCkoSession(
+        response?.payment_collection?.payment_sessions?.[0]?.data?.ckoSession
+      )
+      hasInitiatedRef.current = true
     }
-  }
- 
+
+    if (cart && !ckoSession && !hasInitiatedRef.current) {
+      initiateSession()
+    }
+  }, [cart, isCheckoutPayment, ckoSession])
+
  ...
+
+{isLoading && (
+  <div className="flex items-center justify-center w-full h-full text-ui-fg-base">
+    <Spinner size={36} />
+  </div>
+)}
+<div className={isLoading ? "hidden" : ""}>
+  <CheckoutFlow
+    setIsLoading={setIsLoading}
+    cart={cart}
+    ckoSession={ckoSession}
+  />
+</div>
  
-  {isCheckoutPayment && (<CheckoutFlow cart={cart}></CheckoutFlow>)}
-  
 ```
 CheckoutFlow.tsx
 ```tsx
-import { initiatePaymentSession } from '@lib/data/cart';
 import React, { useEffect, useState, useRef } from 'react';
-import { useCheckoutContext } from '../checkout-wrapper/stripe-wrapper';
+import { HttpTypes } from '@medusajs/types';
 
 // Define the PaymentSession types
 interface PaymentSessionResponse {
@@ -137,10 +168,19 @@ interface PaymentResponse {
 }
 
 interface CheckoutFlowProps {
-  cart: any,
+  cart: HttpTypes.StoreCart,
+  ckoSession: any,
+  setIsLoading: React.Dispatch<React.SetStateAction<boolean>>; 
   onPaymentComplete?: (paymentResponse: PaymentResponse) => void;
 }
 
+interface Cart {
+  total: number;
+  currency_code: string;
+  payment_collection?: {
+    id: string;
+  };
+}
 // Declare the global CheckoutWebComponents type
 declare global {
   interface Window {
@@ -154,28 +194,17 @@ declare global {
 
 const CheckoutFlow: React.FC<CheckoutFlowProps> = ({
   cart,
-  onPaymentComplete
+  ckoSession,
+  onPaymentComplete,
+  setIsLoading
 }) => {
   const [error, setError] = useState<string | null>(null);
   const flowContainerRef = useRef<HTMLDivElement>(null);
-  const {state:{session}} =useCheckoutContext()
 
-const handleCkoPaymentSubmit = async (data: any) => {
-  await initiatePaymentSession(cart, {
-   provider_id: "pp_checkout-com_checkout-com",
-   data: {
-     id: data?.id,
-     payment_collection_id: cart?.payment_collection?.id,
-     amount: cart.total,
-     currency_code: cart.currency_code,
-     paymentSession: session
-   }
- })
-}
 
   // Initialize and mount Checkout Flow when payment session is available
   useEffect(() => {
-    if (!session || !flowContainerRef.current) return;
+    if (!ckoSession || !flowContainerRef.current) return;
 
     const initializeCheckout = async () => {
       try {
@@ -185,7 +214,11 @@ const handleCkoPaymentSubmit = async (data: any) => {
           script.src = 'https://checkout-web-components.checkout.com/index.js';
           script.async = true;
           document.body.appendChild(script);
-
+          script.onerror = () => {
+            setError('Failed to load Checkout.com script');
+            console.error('Script load error for Checkout Web Components');
+            setIsLoading(false)
+          };
           await new Promise((resolve) => {
             script.onload = resolve;
           });
@@ -193,9 +226,9 @@ const handleCkoPaymentSubmit = async (data: any) => {
 
         // Initialize Checkout Web Components
         const checkout = await window.CheckoutWebComponents({
-          paymentSession:session,
+          paymentSession: ckoSession,
           publicKey: process.env.NEXT_PUBLIC_CHECKOUT_PUBLIC_KEY,
-          environment:"sandbox", // or "production"
+          environment: "sandbox", // or "production"
           appearance: {
             colorPrimary: '#1c1c1c',
             colorAction: '#1c1c1c',
@@ -229,10 +262,15 @@ const handleCkoPaymentSubmit = async (data: any) => {
             },
             borderRadius: ['8px', '8px'],
           },
+          onReady: () => {
+            console.log("on Ready");
+            
+            setIsLoading(false)
+          },
           onPaymentCompleted: async(_self: any, paymentResponse: PaymentResponse) => {
             console.log('Payment completed:', paymentResponse);
             if (onPaymentComplete) {
-            await   handleCkoPaymentSubmit(paymentResponse);
+             //TODO: Add callbacks
             }
           }
         });
@@ -242,13 +280,14 @@ const handleCkoPaymentSubmit = async (data: any) => {
           flowComponent.mount(flowContainerRef.current);
         }
       } catch (err) {
+        setIsLoading(false)
         setError('Failed to initialize checkout');
         console.error('Error initializing checkout:', err);
       }
     };
 
     initializeCheckout();
-  }, [session, onPaymentComplete]);
+  }, [ckoSession, onPaymentComplete]);
 
 
   if (error) {

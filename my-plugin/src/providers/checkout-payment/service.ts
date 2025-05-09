@@ -1,4 +1,7 @@
-import { AbstractPaymentProvider } from "@medusajs/framework/utils"
+import {
+  AbstractPaymentProvider,
+  ContainerRegistrationKeys,
+} from "@medusajs/framework/utils";
 import {
   Logger,
   AuthorizePaymentInput,
@@ -21,39 +24,36 @@ import {
   UpdatePaymentOutput,
   PaymentSessionStatus,
   ProviderWebhookPayload,
-  WebhookActionResult
-} from "@medusajs/framework/types"
-import { BigNumber, MedusaError } from "@medusajs/framework/utils"
-import { Checkout } from "checkout-sdk-node"
+  WebhookActionResult,
+} from "@medusajs/framework/types";
+import { BigNumber, MedusaError } from "@medusajs/framework/utils";
+import { Checkout } from "checkout-sdk-node";
 
 type CheckoutComOptions = {
-  secretKey: string
-  publicKey?: string
-  clientId?: string
-  scope?: string[]
-  environment?: string
-  webhookSecret?: string
-  processingChannelId?: string
-}
+  secretKey: string;
+  publicKey?: string;
+  clientId?: string;
+  scope?: string[];
+  environment?: string;
+  webhookSecret?: string;
+  processingChannelId?: string;
+};
 
 type InjectedDependencies = {
-  logger: Logger
-}
+  logger: Logger;
+};
 
 class CheckoutComPaymentService extends AbstractPaymentProvider<CheckoutComOptions> {
-  static identifier = "checkout-com"
-  protected logger_: Logger
-  protected options_: CheckoutComOptions
-  protected client_: Checkout
+  static identifier = "checkout-com";
+  protected logger_: Logger;
+  protected options_: CheckoutComOptions;
+  protected client_: Checkout;
 
-  constructor(
-    container: InjectedDependencies,
-    options: CheckoutComOptions
-  ) {
-    super(container, options)
+  constructor(container: InjectedDependencies, options: CheckoutComOptions) {
+    super(container, options);
 
-    this.logger_ = container.logger
-    this.options_ = options
+    this.logger_ = container.logger;
+    this.options_ = options;
 
     try {
       // Initialize the Checkout.com client
@@ -61,11 +61,11 @@ class CheckoutComPaymentService extends AbstractPaymentProvider<CheckoutComOptio
       if (options.publicKey) {
         this.client_ = new Checkout(options.secretKey, {
           pk: options.publicKey,
-        })
+        });
       }
     } catch (error) {
-      this.logger_.error("Error initializing Checkout.com client", error)
-      throw error
+      this.logger_.error("Error initializing Checkout.com client", error);
+      throw error;
     }
   }
 
@@ -74,7 +74,7 @@ class CheckoutComPaymentService extends AbstractPaymentProvider<CheckoutComOptio
       throw new MedusaError(
         MedusaError.Types.INVALID_DATA,
         "Secret key is required in the Checkout.com provider's options."
-      )
+      );
     }
 
     // If client ID is provided, scope is required
@@ -82,7 +82,7 @@ class CheckoutComPaymentService extends AbstractPaymentProvider<CheckoutComOptio
       throw new MedusaError(
         MedusaError.Types.INVALID_DATA,
         "Scope is required when using client ID for Checkout.com"
-      )
+      );
     }
 
     // If using API keys, public key is required
@@ -90,37 +90,54 @@ class CheckoutComPaymentService extends AbstractPaymentProvider<CheckoutComOptio
       throw new MedusaError(
         MedusaError.Types.INVALID_DATA,
         "Public key is required when using API keys for Checkout.com"
-      )
+      );
     }
   }
 
   async initiatePayment(
-    input: InitiatePaymentInput,
-
+    input: InitiatePaymentInput
   ): Promise<InitiatePaymentOutput> {
-      //TODO: Implement initiatePayment
+    const paymentIntent: any = await this.client_.paymentSessions.request({
+      amount: (input?.amount as number) * 100,
+      currency: input?.currency_code?.toUpperCase(),
+      billing: input?.data?.billing,
+      success_url: input?.data?.success_url,
+      failure_url: input?.data?.failure_url,
+      capture: false,
+      "3ds": {
+        enabled: true,
+      },
+      enabled_payment_methods: ["card"],
+      processing_channel_id: this.options_.processingChannelId,
+      metadata: {
+        medusa_payment_session_id: input?.data?.session_id,
+      },
+    });
     return {
-      id: "",
-    }
+      id: paymentIntent?.id,
+      data: { ckoSession: paymentIntent },
+    };
   }
 
   async authorizePayment(
     input: AuthorizePaymentInput
   ): Promise<AuthorizePaymentOutput> {
-    const context = input?.context as any
+    const context = input?.context as any;
     try {
-      const paymentId = context?.paymentId as string ?? ""
-      const source = context?.source
-
-      console.log("context", input);
+      const paymentId = (context?.paymentId as string) ?? "";
+      const source = context?.source;
 
       return {
         status: context?.medusaStatus ?? "authorized",
-        data: { success: true, ...(paymentId ? { paymentId } : {}), ...(source ? source : {}) }
-      }
+        data: {
+          success: true,
+          ...(paymentId ? { paymentId } : {}),
+          ...(source ? source : {}),
+        },
+      };
     } catch (error) {
-      this.logger_.error("Error authorizing Checkout.com payment", error)
-      throw error
+      this.logger_.error("Error authorizing Checkout.com payment", error);
+      throw error;
     }
   }
 
@@ -128,83 +145,76 @@ class CheckoutComPaymentService extends AbstractPaymentProvider<CheckoutComOptio
     input: CapturePaymentInput
   ): Promise<CapturePaymentOutput> {
     try {
-      const { data } = input
-      const paymentId = data?.paymentId as string ?? ""
-console.log();
+      const { data } = input;
+      const paymentId = (data?.paymentId as string) ?? "";
 
       if (!paymentId) {
         throw new MedusaError(
           MedusaError.Types.INVALID_DATA,
           "Missing payment ID in capture request"
-        )
+        );
       }
 
       // Capture the full payment amount in Checkout.com
-      const captureResponse = await this.client_.payments.capture(paymentId)
+      const captureResponse = await this.client_.payments.capture(paymentId);
 
       return {
-        data: { ...captureResponse }
-      }
+        data: { ...captureResponse },
+      };
     } catch (error) {
-      this.logger_.error("Error capturing Checkout.com payment", error)
-      throw error
+      this.logger_.error("Error capturing Checkout.com payment", error);
+      throw error;
     }
   }
 
-  async cancelPayment(
-    input: CancelPaymentInput
-  ): Promise<CancelPaymentOutput> {
+  async cancelPayment(input: CancelPaymentInput): Promise<CancelPaymentOutput> {
     try {
-      const { data } = input
-      const paymentId = data?.paymentId as string ?? ""
-      console.log("---> retrievePayment", input);
+      const { data } = input;
+      const paymentId = (data?.id as string) ?? "";
 
       if (!paymentId) {
         throw new MedusaError(
           MedusaError.Types.INVALID_DATA,
           "Missing payment ID in cancel request"
-        )
+        );
       }
 
       // Cancel the payment in Checkout.com
-      const cancelResponse = await this.client_.payments.void(paymentId)
+      const cancelResponse = await this.client_.payments.void(paymentId);
 
       return {
-        data: { ...cancelResponse }
-      }
+        data: { ...cancelResponse },
+      };
     } catch (error) {
-      this.logger_.error("Error canceling Checkout.com payment", error)
-      throw error
+      this.logger_.error("Error canceling Checkout.com payment", error);
+      throw error;
     }
   }
 
-  async deletePayment(
-    input: DeletePaymentInput
-  ): Promise<DeletePaymentOutput> {
+  async deletePayment(input: DeletePaymentInput): Promise<DeletePaymentOutput> {
     try {
-      const { data } = input
-      const paymentId = data?.paymentId as string ?? ""
-      console.log("---> retrievePayment", input);
+      const { data } = input;
+      const paymentId = (data?.paymentId as string) ?? "";
 
       if (!paymentId) {
-        this.logger_.warn("No payment ID to delete, skipping")
-        return {}
+        this.logger_.warn("No payment ID to delete, skipping");
+        return {};
       }
 
       // For Checkout.com, we can't truly delete a payment
       // So we'll try to void/cancel it if it's in a state that allows it
       try {
-        await this.client_.payments.void(paymentId)
+        await this.client_.payments.void(paymentId);
       } catch (cancelError) {
         this.logger_.warn(
-          `Could not void payment ${paymentId} during deletion, it may already be completed or canceled`,
-        )
+          `Could not void payment ${paymentId} during deletion, it may already be completed or canceled`
+        );
       }
 
-      return {}
+      return {};
     } catch (error) {
-      this.logger_.error("Error deleting Checkout.com payment", error)
-      throw error
+      this.logger_.error("Error deleting Checkout.com payment", error);
+      throw error;
     }
   }
 
@@ -212,99 +222,91 @@ console.log();
     input: GetPaymentStatusInput
   ): Promise<GetPaymentStatusOutput> {
     try {
-      const { data } = input
-      const paymentId = data?.paymentId as string ?? ""
+      const { data } = input;
+      const paymentId = (data?.paymentId as string) ?? "";
 
       if (!paymentId) {
         throw new MedusaError(
           MedusaError.Types.INVALID_DATA,
           "Missing payment ID in status request"
-        )
+        );
       }
 
       // Get payment status from Checkout.com
-      const paymentDetails = await this.client_.payments.get(paymentId)
+      const paymentDetails = await this.client_.payments.get(paymentId);
 
       // Map Checkout.com status to Medusa status
-      let status: PaymentSessionStatus = "pending"
+      let status: PaymentSessionStatus = "pending";
 
       switch (paymentDetails.status) {
         case "Authorized":
-          status = "authorized"
-          break
+          status = "authorized";
+          break;
         case "Captured":
-          status = "captured"
-          break
+          status = "captured";
+          break;
         case "Declined":
         case "Expired":
         case "Canceled":
-          status = "canceled"
-          break
+          status = "canceled";
+          break;
         default:
-          status = "pending"
+          status = "pending";
       }
 
-      return { status }
+      return { status };
     } catch (error) {
-      this.logger_.error("Error getting Checkout.com payment status", error)
-      throw error
+      this.logger_.error("Error getting Checkout.com payment status", error);
+      throw error;
     }
   }
 
-  async refundPayment(
-    input: RefundPaymentInput
-  ): Promise<RefundPaymentOutput> {
+  async refundPayment(input: RefundPaymentInput): Promise<RefundPaymentOutput> {
     try {
-      const { data, amount } = input
-      console.log("input", input);
-
-      
-      const paymentId = input?.data?.paymentId as string ?? ""
+      const paymentId = (input?.data?.paymentId as string) ?? "";
 
       if (!paymentId) {
         throw new MedusaError(
           MedusaError.Types.INVALID_DATA,
           "Missing payment ID in refund request"
-        )
+        );
       }
 
       // Process refund through Checkout.com
-      const refundResponse = await this.client_.payments.refund(paymentId)
+      const refundResponse = await this.client_.payments.refund(paymentId);
 
       return {
-        data: { ...refundResponse }
-      }
+        data: { ...refundResponse },
+      };
     } catch (error) {
-      this.logger_.error("Error refunding Checkout.com payment", error)
-      throw error
+      this.logger_.error("Error refunding Checkout.com payment", error);
+      throw error;
     }
   }
 
   async retrievePayment(
     input: RetrievePaymentInput
   ): Promise<RetrievePaymentOutput> {
-    try {      
-      // TODO: Implement updatePayment 
+    try {
+      // TODO: Implement updatePayment
       return {
-        data: {}
-      }
+        data: {},
+      };
     } catch (error) {
-      this.logger_.error("Error retrieving Checkout.com payment", error)
-      throw error
+      this.logger_.error("Error retrieving Checkout.com payment", error);
+      throw error;
     }
   }
 
-  async updatePayment(
-    input: UpdatePaymentInput
-  ): Promise<UpdatePaymentOutput> {
+  async updatePayment(input: UpdatePaymentInput): Promise<UpdatePaymentOutput> {
     try {
-      // TODO: Implement updatePayment 
+      // TODO: Implement updatePayment
       return {
-        data: {}
-      }
+        data: {},
+      };
     } catch (error) {
-      this.logger_.error("Error updating Checkout.com payment", error)
-      throw error
+      this.logger_.error("Error updating Checkout.com payment", error);
+      throw error;
     }
   }
 
@@ -312,7 +314,7 @@ console.log();
     payload: ProviderWebhookPayload["payload"]
   ): Promise<any> {
     try {
-      const { data: response, headers } = payload as any
+      const { data: response, headers } = payload as any;
 
       // Validate webhook signature if provided
       // This is important for security
@@ -330,39 +332,44 @@ console.log();
           data: {
             session_id: response.data.metadata?.medusa_payment_session_id,
             amount: balances.total_authorized,
-            response
-          }
-        }
-      } else if (balances.total_authorized > 0 && balances.total_captured === 0) {
+            response,
+          },
+        };
+      } else if (
+        balances.total_authorized > 0 &&
+        balances.total_captured === 0
+      ) {
         return {
           action: "authorized",
           data: {
             session_id: response.data.metadata?.medusa_payment_session_id,
             amount: balances.total_authorized,
-            response
-          }
-        }
-      } else if (balances.total_voided > 0 && balances.available_to_void === 0) {
+            response,
+          },
+        };
+      } else if (
+        balances.total_voided > 0 &&
+        balances.available_to_void === 0
+      ) {
         return {
           action: "canceled",
           data: {
             session_id: response.data.metadata?.medusa_payment_session_id,
-            amount: balances.total_authorized
-          }
-        }
+            amount: balances.total_authorized,
+          },
+        };
       } else {
         return {
-          action: "not_supported"
-        }
+          action: "not_supported",
+        };
       }
-
     } catch (error) {
-      this.logger_.error("Error processing Checkout.com webhook", error)
+      this.logger_.error("Error processing Checkout.com webhook", error);
       return {
         action: "failed",
-      }
+      };
     }
   }
 }
 
-export default CheckoutComPaymentService
+export default CheckoutComPaymentService;

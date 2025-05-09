@@ -15,7 +15,7 @@ import { Button, Container, Heading, Text, clx } from "@medusajs/ui"
 import ErrorMessage from "@modules/checkout/components/error-message"
 import Divider from "@modules/common/components/divider"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Frames, CardNumber, ExpiryDate, Cvv } from "frames-react"
 import PaymentContainer, {
   StripeCardContainer,
@@ -23,6 +23,8 @@ import PaymentContainer, {
 } from "../payment-container"
 import { useCheckoutContext } from "../checkout-wrapper/stripe-wrapper"
 import { metadata } from "app/layout"
+import CheckoutFlow from "./CheckoutFlow"
+import Spinner from "@modules/common/icons/spinner"
 const Payment = ({
   cart,
   availablePaymentMethods,
@@ -34,7 +36,6 @@ const Payment = ({
     (paymentSession: any) => paymentSession.status === "pending"
   )
 
-  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [cardBrand, setCardBrand] = useState<string | null>(null)
   const [cardComplete, setCardComplete] = useState(false)
@@ -42,111 +43,68 @@ const Payment = ({
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
     activeSession?.provider_id ?? ""
   )
-
+  
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
-
+  
   const isOpen = searchParams.get("step") === "payment"
-
-  const isStripe = isStripeFunc(selectedPaymentMethod)
-  const {
-    state: { session },
-    handleCheckoutSession,
-  } = useCheckoutContext()
+  
   console.log("cart", cart)
-
+  
   const isCheckoutPayment = useMemo(() => {
     return isCheckoutPaymentFunc(activeSession?.provider_id)
   }, [activeSession?.provider_id])
+  
+  const [isLoading, setIsLoading] = useState(false)
+  const [ckoSession, setCkoSession] = useState<any>(null)
+  const hasInitiatedRef = useRef(false)
 
   useEffect(() => {
-    if (isCheckoutPayment && cart && !session) {
-      const initiateSession = async () => {
-        const selectSession = cart.payment_collection?.payment_sessions?.find(
-          (paymentSession: any) => paymentSession.status === "pending"
-        )
-        console.log("selectSession", selectSession)
+    const initiateSession = async () => {
+      setIsLoading(true)
 
-        const response: any = await initiateCkoPaymentSession({
+      const selectSession = cart.payment_collection?.payment_sessions?.find(
+        (paymentSession: any) => paymentSession.status === "pending"
+      )
+
+      const response: any = await initiatePaymentSession(cart, {
+        provider_id: "pp_checkout-com_checkout-com",
+        data: {
           cart_id: cart?.id,
           billing: {
             address: {
-              country: cart?.billing_address?.country_code.toUpperCase(),
+              country: cart?.billing_address?.country_code?.toUpperCase(),
             },
           },
           success_url:
             process.env.NEXT_PUBLIC_BASE_URL +
-            "/api/payment/checkout/processor",
+            "/api/payment/checkout/processor" +
+            "?cart_id=" +
+            cart?.id,
           failure_url:
             process.env.NEXT_PUBLIC_BASE_URL +
-            "/api/payment/checkout/processor",
+            "/api/payment/checkout/processor" +
+            "?cart_id=" +
+            cart?.id,
           amount: cart?.total,
-          currency_code: cart?.currency_code.toUpperCase(),
+          currency_code: cart?.currency_code?.toUpperCase(),
           metadata: {
-            medusa_payment_collection_id: selectSession.payment_collection_id,
+            medusa_payment_collection_id: selectSession?.payment_collection_id,
             medusa_payment_session_id: selectSession?.id,
           },
-        })
-        console.log("response", response)
+        },
+      })
+      setCkoSession(
+        response?.payment_collection?.payment_sessions?.[0]?.data?.ckoSession
+      )
+      hasInitiatedRef.current = true
+    }
 
-        handleCheckoutSession(response)
-      }
+    if (isOpen&&cart && !ckoSession && !hasInitiatedRef.current) {
       initiateSession()
     }
-  }, [cart, isCheckoutPayment])
-  
-  const setPaymentMethod = async (method: string) => {
-    setError(null)
-    setSelectedPaymentMethod(method)
-    if (isStripeFunc(method)) {
-      await initiatePaymentSession(cart, {
-        provider_id: method,
-      })
-    }
-
-    if (isCheckoutPaymentFunc(method)) {
-      const currency_code = cart?.currency_code
-      const medusaPaymentSession = await initiatePaymentSession(cart, {
-        provider_id: method,
-        data:{
-          cart_id: cart?.id,
-          billing: {
-            address: {
-              country: cart?.billing_address?.country_code.toUpperCase(),
-            },
-          },
-          success_url:
-            process.env.NEXT_PUBLIC_BASE_URL + "/api/payment/checkout/processor",
-          failure_url:
-            process.env.NEXT_PUBLIC_BASE_URL + "/api/payment/checkout/processor",
-          amount: cart?.total,
-          currency_code: currency_code.toUpperCase(),
-        }
-      })
-      const response: any = await initiateCkoPaymentSession({
-        cart_id: cart?.id,
-        billing: {
-          address: {
-            country: cart?.billing_address?.country_code.toUpperCase(),
-          },
-        },
-        success_url:
-          process.env.NEXT_PUBLIC_BASE_URL + "/api/payment/checkout/processor",
-        failure_url:
-          process.env.NEXT_PUBLIC_BASE_URL + "/api/payment/checkout/processor",
-        amount: cart?.total,
-        currency_code: currency_code.toUpperCase(),
-        metadata: {
-          medusa_payment_collection_id:
-            medusaPaymentSession.payment_collection.id,
-          medusa_payment_session_id:
-            medusaPaymentSession?.payment_collection?.payment_sessions?.[0]?.id,
-        },
-      })
-      handleCheckoutSession(response)
-    }
-  }
+  }, [cart, isCheckoutPayment, ckoSession])
 
   const paidByGiftcard =
     cart?.gift_cards && cart?.gift_cards?.length > 0 && cart?.total === 0
@@ -234,73 +192,18 @@ const Payment = ({
         )}
       </div>
       <div>
-        <div className={isOpen ? "block" : "hidden"}>
-          {!paidByGiftcard && availablePaymentMethods?.length && (
-            <>
-              <RadioGroup
-                value={selectedPaymentMethod}
-                onChange={(value: string) => setPaymentMethod(value)}
-              >
-                {availablePaymentMethods.map((paymentMethod) => (
-                  <div key={paymentMethod.id}>
-                    {isStripeFunc(paymentMethod.id) ? (
-                      <StripeCardContainer
-                        paymentProviderId={paymentMethod.id}
-                        selectedPaymentOptionId={selectedPaymentMethod}
-                        paymentInfoMap={paymentInfoMap}
-                        setCardBrand={setCardBrand}
-                        setError={setError}
-                        setCardComplete={setCardComplete}
-                      />
-                    ) : (
-                      <PaymentContainer
-                        paymentInfoMap={paymentInfoMap}
-                        paymentProviderId={paymentMethod.id}
-                        selectedPaymentOptionId={selectedPaymentMethod}
-                      />
-                    )}
-                  </div>
-                ))}
-              </RadioGroup>
-            </>
-          )}
-
-          {paidByGiftcard && (
-            <div className="flex flex-col w-1/3">
-              <Text className="txt-medium-plus text-ui-fg-base mb-1">
-                Payment method
-              </Text>
-              <Text
-                className="txt-medium text-ui-fg-subtle"
-                data-testid="payment-method-summary"
-              >
-                Gift card
-              </Text>
-            </div>
-          )}
-
-          <ErrorMessage
-            error={error}
-            data-testid="payment-method-error-message"
+        {isLoading && (
+          <div className="flex items-center justify-center w-full h-full text-ui-fg-base">
+            <Spinner size={36} />
+          </div>
+        )}
+        <div className={isLoading ? "hidden" : ""}>
+          <CheckoutFlow
+            setIsLoading={setIsLoading}
+            cart={cart}
+            ckoSession={ckoSession}
           />
-
-          <Button
-            size="large"
-            className="mt-6"
-            onClick={handleSubmit}
-            isLoading={isLoading}
-            disabled={
-              (isStripe && !cardComplete) ||
-              (!selectedPaymentMethod && !paidByGiftcard)
-            }
-            data-testid="submit-payment-button"
-          >
-            {!activeSession && isStripeFunc(selectedPaymentMethod)
-              ? " Enter card details"
-              : "Continue to review"}
-          </Button>
         </div>
-
         <div className={isOpen ? "hidden" : "block"}>
           {cart && paymentReady && activeSession ? (
             <div className="flex items-start gap-x-1 w-full">
@@ -329,11 +232,15 @@ const Payment = ({
                       <CreditCard />
                     )}
                   </Container>
-                  <Text >
+                  <Text>
                     {isStripeFunc(selectedPaymentMethod) && cardBrand ? (
                       cardBrand
                     ) : (
-                      <>{isCheckoutPayment ? "Another step will appear" : "Pay in cash/accepted methods when your order arrives."}</>
+                      <>
+                        {isCheckoutPayment
+                          ? "Another step will appear"
+                          : "Pay in cash/accepted methods when your order arrives."}
+                      </>
                     )}
                   </Text>
                 </div>
@@ -354,7 +261,6 @@ const Payment = ({
           ) : null}
         </div>
       </div>
-      <Divider className="mt-8" />
     </div>
   )
 }

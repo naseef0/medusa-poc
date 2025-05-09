@@ -1,6 +1,5 @@
-import { initiatePaymentSession } from '@lib/data/cart';
 import React, { useEffect, useState, useRef } from 'react';
-import { useCheckoutContext } from '../checkout-wrapper/stripe-wrapper';
+import { HttpTypes } from '@medusajs/types';
 
 // Define the PaymentSession types
 interface PaymentSessionResponse {
@@ -21,10 +20,19 @@ interface PaymentResponse {
 }
 
 interface CheckoutFlowProps {
-  cart: any,
+  cart: HttpTypes.StoreCart,
+  ckoSession: any,
+  setIsLoading: React.Dispatch<React.SetStateAction<boolean>>; 
   onPaymentComplete?: (paymentResponse: PaymentResponse) => void;
 }
 
+interface Cart {
+  total: number;
+  currency_code: string;
+  payment_collection?: {
+    id: string;
+  };
+}
 // Declare the global CheckoutWebComponents type
 declare global {
   interface Window {
@@ -38,28 +46,17 @@ declare global {
 
 const CheckoutFlow: React.FC<CheckoutFlowProps> = ({
   cart,
-  onPaymentComplete
+  ckoSession,
+  onPaymentComplete,
+  setIsLoading
 }) => {
   const [error, setError] = useState<string | null>(null);
   const flowContainerRef = useRef<HTMLDivElement>(null);
-  const {state:{session}} =useCheckoutContext()
 
-const handleCkoPaymentSubmit = async (data: any) => {
-  await initiatePaymentSession(cart, {
-   provider_id: "pp_checkout-com_checkout-com",
-   data: {
-     id: data?.id,
-     payment_collection_id: cart?.payment_collection?.id,
-     amount: cart.total,
-     currency_code: cart.currency_code,
-     paymentSession: session
-   }
- })
-}
 
   // Initialize and mount Checkout Flow when payment session is available
   useEffect(() => {
-    if (!session || !flowContainerRef.current) return;
+    if (!ckoSession || !flowContainerRef.current) return;
 
     const initializeCheckout = async () => {
       try {
@@ -69,7 +66,11 @@ const handleCkoPaymentSubmit = async (data: any) => {
           script.src = 'https://checkout-web-components.checkout.com/index.js';
           script.async = true;
           document.body.appendChild(script);
-
+          script.onerror = () => {
+            setError('Failed to load Checkout.com script');
+            console.error('Script load error for Checkout Web Components');
+            setIsLoading(false)
+          };
           await new Promise((resolve) => {
             script.onload = resolve;
           });
@@ -77,9 +78,9 @@ const handleCkoPaymentSubmit = async (data: any) => {
 
         // Initialize Checkout Web Components
         const checkout = await window.CheckoutWebComponents({
-          paymentSession:session,
+          paymentSession: ckoSession,
           publicKey: process.env.NEXT_PUBLIC_CHECKOUT_PUBLIC_KEY,
-          environment:"sandbox", // or "production"
+          environment: "sandbox", // or "production"
           appearance: {
             colorPrimary: '#1c1c1c',
             colorAction: '#1c1c1c',
@@ -113,10 +114,15 @@ const handleCkoPaymentSubmit = async (data: any) => {
             },
             borderRadius: ['8px', '8px'],
           },
+          onReady: () => {
+            console.log("on Ready");
+            
+            setIsLoading(false)
+          },
           onPaymentCompleted: async(_self: any, paymentResponse: PaymentResponse) => {
             console.log('Payment completed:', paymentResponse);
             if (onPaymentComplete) {
-            await   handleCkoPaymentSubmit(paymentResponse);
+             //TODO: Add callbacks
             }
           }
         });
@@ -126,13 +132,14 @@ const handleCkoPaymentSubmit = async (data: any) => {
           flowComponent.mount(flowContainerRef.current);
         }
       } catch (err) {
+        setIsLoading(false)
         setError('Failed to initialize checkout');
         console.error('Error initializing checkout:', err);
       }
     };
 
     initializeCheckout();
-  }, [session, onPaymentComplete]);
+  }, [ckoSession, onPaymentComplete]);
 
 
   if (error) {

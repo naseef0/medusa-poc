@@ -1,7 +1,7 @@
 {
   "name": "checkout-payment-plugin-by-valoriz",
-  "version": "0.0.4",
-  "description": "Checkout payment.",
+  "version": "1.0.1",
+  "description": "Checkout.com payment plugin",
   "author": "Naseef",
   "license": "MIT",
   "files": [

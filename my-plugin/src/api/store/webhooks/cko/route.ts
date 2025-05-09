@@ -4,10 +4,8 @@ import type {
 } from "@medusajs/framework/http"
 import {
   PaymentActions,
-  PaymentSessionStatus,
 } from "@medusajs/framework/types"
 import { processPaymentWorkflow } from "@medusajs/medusa/core-flows";
-import { Any } from "@sanity/client";
 
 
 /**
@@ -15,7 +13,7 @@ import { Any } from "@sanity/client";
  * @param response Payment response object from payment provider
  * @returns Object with payment status and amount information
  */
-function getPaymentAmountConfig(response: any): Any {
+function getPaymentAmountConfig(response: any): any {
   // Default response
   const config = {
     status: 'pending',
@@ -58,11 +56,8 @@ export async function POST(
   const paymentDetails = req.body as any;
   const paymentSessionId = paymentDetails?.data?.metadata?.medusa_payment_session_id;
   const paymentConfig = getPaymentAmountConfig(paymentDetails?.data);
-  console.log("\n\n Webhook response", paymentDetails, "\n\n");
-  console.log("Payment status", paymentConfig.status, "\n\n");
-  console.log("paymentSessionId", paymentSessionId, "\n\n");
-  console.log("paymentSessionId", paymentSessionId, "\n\n");
   const paymentModuleService = req.scope.resolve("payment");
+
   await paymentModuleService.authorizePaymentSession(
     paymentSessionId,
     {
@@ -82,7 +77,7 @@ export async function POST(
     }
   )
 
-  const result = await processPaymentWorkflow(req.scope)
+ await processPaymentWorkflow(req.scope)
     .run({
       input: {
         action: paymentConfig.status as PaymentActions,
@@ -92,7 +87,6 @@ export async function POST(
         }
       }
     })
-  console.log("result", result, "\n\n");
 
   res.json({
     message: "Success",

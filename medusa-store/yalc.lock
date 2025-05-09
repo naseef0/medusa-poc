@@ -1,0 +1,9 @@
+{
+  "version": "v1",
+  "packages": {
+    "xro-checkout-payment-plugin": {
+      "signature": "7d6c893e62915c4b881a3d173e6848ae",
+      "file": true
+    }
+  }
+}

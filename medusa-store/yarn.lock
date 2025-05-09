@@ -8812,9 +8812,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"checkout-payment-plugin-by-valoriz@npm:^0.0.1":
-  version: 0.0.1
-  resolution: "checkout-payment-plugin-by-valoriz@npm:0.0.1"
+"checkout-payment-plugin-by-valoriz@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "checkout-payment-plugin-by-valoriz@npm:1.0.0"
   dependencies:
     checkout-sdk-node: "npm:^2.6.0"
   peerDependencies:
@@ -8833,7 +8833,7 @@ __metadata:
     "@mikro-orm/postgresql": ^6.4.3
     awilix: ^8.0.1
     pg: ^8.13.0
-  checksum: 10c0/33ae1f72ea3b588e5b4e3b295ca43792b215c123130373ae2742f20646f7ca7544ef302605fd2a3c1c39acbbac31729f14712a5b1bad0fbd69ed190d3a6e519b
+  checksum: 10c0/8674c9c2daf33598445750a3c3fd70f380ffd5bc039f37c8bf169d15f0d48c5fff31134d60aff7f1af5d3c33e6e7a8aac34197ab1d98991df9a3306832df8dc7
   languageName: node
   linkType: hard
 
@@ -12358,7 +12358,7 @@ __metadata:
     "@types/react-dom": "npm:^18.2.25"
     algoliasearch: "npm:^5.24.0"
     awilix: "npm:^8.0.1"
-    checkout-payment-plugin-by-valoriz: "npm:^0.0.1"
+    checkout-payment-plugin-by-valoriz: "npm:^1.0.0"
     checkout-sdk-node: "npm:^2.6.0"
     jest: "npm:^29.7.0"
     pg: "npm:^8.13.0"

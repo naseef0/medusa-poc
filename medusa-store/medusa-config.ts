@@ -62,11 +62,12 @@ module.exports = defineConfig({
             },
           },
           {
-            resolve: "./src/modules/checkout-payment",
+            resolve: "checkout-payment-plugin-by-valoriz/providers/checkout-payment",
             id: "checkout-com",
             options: {
               secretKey: process.env.CHECKOUT_COM_SECRET_KEY,
               publicKey: process.env.CHECKOUT_COM_PUBLIC_KEY,
+              processingChannelId: process.env.CHECKOUT_COM_PROCESSING_CHANNEL_ID,
               // For OAuth flow, use these instead:
               // clientId: process.env.CHECKOUT_COM_CLIENT_ID,
               // scope: ["gateway"], // adjust as needed
